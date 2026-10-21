@@ -52,6 +52,7 @@ import java.util.concurrent.Executors;
  * Main tab navigation is reachable at the bottom, playback stays in a MediaSession.
  */
 public final class MainActivity extends Activity {
+  private interface TabSelect { void choose(String value); }
   private static final int REQUEST_PERMS=61, REQUEST_FILE=62, REQUEST_FOLDER=63;
   private final Handler handler=new Handler(Looper.getMainLooper());
   private final ExecutorService background=Executors.newSingleThreadExecutor();
@@ -322,13 +323,13 @@ public final class MainActivity extends Activity {
     else if(section.equals("Folders"))renderFolderResults(resultsHost);
     else if(section.equals("More"))renderMoreResults(resultsHost);
   }
-  private void chips(String[] modes,String selected,java.util.function.Consumer<String> onSelect){
+  private void chips(String[] modes,String selected,TabSelect onSelect){
     android.widget.HorizontalScrollView outer=new android.widget.HorizontalScrollView(this);
     outer.setHorizontalScrollBarEnabled(false);
     LinearLayout row=Ui.horizontal(this);
     for(String mode:modes){
       TextView chip=Ui.action(this,mode,selected.equals(mode));
-      chip.setOnClickListener(v->onSelect.accept(mode));
+      chip.setOnClickListener(v->onSelect.choose(mode));
       row.addView(chip,Ui.lp(this,-2,48,0,0,8,0));
     }
     outer.addView(row);listHost.addView(outer,Ui.lp(this,-1,52,0,0,0,9));
@@ -347,7 +348,7 @@ public final class MainActivity extends Activity {
       List<MediaEntry> found=new ArrayList<>();
       for(MediaEntry e:music){
         String group=musicMode.equals("Albums")?e.album:e.artist;
-        if(activeGroup.equals(group))found.add(e);
+        if(activeGroup.equals((group==null||group.isEmpty())?"Unknown "+(musicMode.equals("Albums")?"album":"artist"):group))found.add(e);
       }
       renderItemList(target,filtered(found));return;
     }
