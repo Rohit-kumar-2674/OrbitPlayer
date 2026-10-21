@@ -120,16 +120,23 @@ public final class MainActivity extends Activity {
     super.onRequestPermissionsResult(request,names,results);
     if(request==REQUEST_PERMS){permissionGranted=true;for(int r:results)if(r!=PackageManager.PERMISSION_GRANTED)permissionGranted=false;scan();}
   }
+  private static String keyFor(MediaEntry e){
+    String path=e.folder.toLowerCase(Locale.ROOT).replaceAll("/+$","");
+    return path+"/"+e.title.toLowerCase(Locale.ROOT);
+  }
   private void scan(){
     if(scanning)return;
     scanning=true;renderContent();
     background.execute(()->{
       ArrayList<MediaEntry> a=LibraryScanner.scan(this,"audio"),v=LibraryScanner.scan(this,"video");
-      String tree=store.tree();
-      if(!tree.isEmpty())LibraryScanner.scanTree(this,Uri.parse(tree),a,v);
+      for(String tree:store.trees()) {
+        if(!tree.isEmpty())LibraryScanner.scanTree(this,Uri.parse(tree),a,v);
+      }
       java.util.LinkedHashMap<String,MediaEntry> dedup=new java.util.LinkedHashMap<>();
-      for(MediaEntry e:a)dedup.put(e.uri,e);a=new ArrayList<>(dedup.values());dedup.clear();
-      for(MediaEntry e:v)dedup.put(e.uri,e);v=new ArrayList<>(dedup.values());
+      for(MediaEntry e:a)dedup.putIfAbsent(keyFor(e),e);
+      a=new ArrayList<>(dedup.values());dedup.clear();
+      for(MediaEntry e:v)dedup.putIfAbsent(keyFor(e),e);
+      v=new ArrayList<>(dedup.values());
       a.sort(Comparator.comparing(e->e.title.toLowerCase(Locale.ROOT)));
       v.sort(Comparator.comparing(e->e.title.toLowerCase(Locale.ROOT)));
       final ArrayList<MediaEntry> allA=a,allV=v;
@@ -396,8 +403,11 @@ public final class MainActivity extends Activity {
     TextView refresh=Ui.action(this,"↻  Rescan",false);
     refresh.setOnClickListener(v->scan());actions.addView(refresh,Ui.lp(this,-2,51,0,0,0,0));
     listHost.addView(actions,Ui.lp(this,-1,54,0,0,0,11));
-    String tree=store.tree();
-    if(!tree.isEmpty())listHost.addView(Ui.text(this,"✓ Extra folder access enabled · includes subfolders",12,Ui.GREEN,false),Ui.lp(this,-1,31,4,0,0,8));
+    int treeCount=store.trees().size();
+    if(treeCount>0){
+      listHost.addView(Ui.text(this,"✓ "+treeCount+" chosen folder"+(treeCount==1?"":"s")+"  ·  includes subfolders",12,Ui.GREEN,false),
+          Ui.lp(this,-1,31,4,0,0,8));
+    }
     searchBox("Filter folders or filenames");
     attachResults();renderResultsOnly();
   }
@@ -438,7 +448,9 @@ public final class MainActivity extends Activity {
     cardRow(listHost,"⌁","Network streams","HLS, DASH, RTSP and direct URLs",()->{moreMode="Streams";renderShell();},null);
     cardRow(listHost,"♡","Favorites","Your saved music and videos",()->{moreMode="Favorites";renderShell();},null);
     cardRow(listHost,"▥","Playlists","Curate your listening",()->{moreMode="Playlists";renderShell();},null);
-    cardRow(listHost,"▤","Storage access","Pick an entire folder, including subfolders",this::chooseFolder,null);
+    cardRow(listHost,"▤","Storage access","Pick entire folders and SD cards",this::chooseFolder,null);
+    if(!store.trees().isEmpty())cardRow(listHost,"⊗","Manage folder access",
+        store.trees().size()+" folders included",this::manageFolders,null);
     cardRow(listHost,"↻","Rescan library","Refresh audio, video and folders",this::scan,null);
     cardRow(listHost,"⊕","Open a media file","Use the system file browser",this::pickFile,null);
     cardRow(listHost,"ⓘ","About Orbit","Open-source, local-first media player",this::about,null);
@@ -682,6 +694,22 @@ public final class MainActivity extends Activity {
     i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
     startActivityForResult(i,REQUEST_FILE);
   }
+  private void manageFolders(){
+    ArrayList<String> entries=store.trees();
+    if(entries.isEmpty()){toast("No extra folders selected");return;}
+    String[] names=new String[entries.size()];
+    for(int i=0;i<entries.size();i++)names[i]=Uri.parse(entries.get(i)).getLastPathSegment();
+    new AlertDialog.Builder(this).setTitle("Remove folder access").setItems(names,(dialog,index)->{
+      String uri=entries.get(index);
+      new AlertDialog.Builder(this).setMessage("Stop scanning this folder? Media files will not be deleted.")
+        .setPositiveButton("Remove",(d,which)->{
+          store.removeTree(uri);
+          try{getContentResolver().releasePersistableUriPermission(Uri.parse(uri),Intent.FLAG_GRANT_READ_URI_PERMISSION);}
+          catch(Exception ignored){}
+          scan();renderShell();
+        }).setNegativeButton("Cancel",null).show();
+    }).setNegativeButton("Close",null).show();
+  }
   private void chooseFolder(){
     if(Build.VERSION.SDK_INT<21){pickFile();return;}
     Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -697,7 +725,7 @@ public final class MainActivity extends Activity {
               data.getFlags()&Intent.FLAG_GRANT_READ_URI_PERMISSION);
     }catch(SecurityException ignored){}
     if(req==REQUEST_FOLDER){
-      store.setTree(uri.toString());section="Folders";activeGroup="";
+      store.addTree(uri.toString());section="Folders";activeGroup="";
       renderShell();scan();return;
     }
     if(req==REQUEST_FILE){
