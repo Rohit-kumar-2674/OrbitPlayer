@@ -26,6 +26,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.ImageView;
 import android.widget.Toast;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -490,8 +491,7 @@ public final class MainActivity extends Activity {
     ArrayList<String> list=new ArrayList<>(keys);list.sort(String.CASE_INSENSITIVE_ORDER);return list;
   }
   private void renderRows(List<MediaEntry> subset,List<MediaEntry> queue,boolean limit){
-    for(MediaEntry e:subset)cardRow(listHost,e.isVideo()?"▶":"♫",e.title,
-        mediaMeta(e),()->play(queue,e),()->itemMenu(e));
+    for(MediaEntry e:subset)cardMediaRow(listHost,e,()->play(queue,e),()->itemMenu(e));
   }
   private void renderItemList(LinearLayout target,List<MediaEntry> entries){
     TextView count=Ui.text(this,entries.size()+" ITEMS"+(scanning?"  ·  SCANNING…":""),11,Ui.MUTED,true);
@@ -501,8 +501,7 @@ public final class MainActivity extends Activity {
     int end=Math.min(shown,entries.size());
     for(int i=0;i<end;i++){
       MediaEntry e=entries.get(i);
-      cardRow(target,e.isVideo()?"▶":"♫",e.title,mediaMeta(e),
-          ()->play(queue,e),()->itemMenu(e));
+      cardMediaRow(target,e,()->play(queue,e),()->itemMenu(e));
     }
     if(end<entries.size()){
       TextView more=Ui.action(this,"Show more  ("+(entries.size()-end)+" remaining)",false);
@@ -518,12 +517,28 @@ public final class MainActivity extends Activity {
     return sub;
   }
   private void cardRow(LinearLayout host,String symbol,String title,String meta,Runnable onOpen,Runnable onMenu){
+    cardRow(host,symbol,title,meta,onOpen,onMenu,null);
+  }
+  private void cardMediaRow(LinearLayout host,MediaEntry entry,Runnable onOpen,Runnable onMenu){
+    cardRow(host,entry.isVideo()?"▶":"♫",entry.title,mediaMeta(entry),onOpen,onMenu,entry);
+  }
+  private void cardRow(LinearLayout host,String symbol,String title,String meta,Runnable onOpen,Runnable onMenu,MediaEntry entry){
     LinearLayout row=Ui.horizontal(this);
     row.setPadding(Ui.dp(this,11),Ui.dp(this,10),Ui.dp(this,8),Ui.dp(this,10));
     Ui.touch(this,row,Ui.SURFACE,16);row.setMinimumHeight(Ui.dp(this,76));
+    FrameLayout artwork=new FrameLayout(this);
+    artwork.setBackground(Ui.shape(this,Ui.RAISED,13));
+    artwork.setClipToOutline(true);
     TextView badge=Ui.text(this,symbol,23,Ui.ACCENT,true);
-    badge.setGravity(Gravity.CENTER);badge.setBackground(Ui.shape(this,Ui.RAISED,13));
-    row.addView(badge,Ui.lp(this,50,52,0,0,12,0));
+    badge.setGravity(Gravity.CENTER);
+    artwork.addView(badge,new FrameLayout.LayoutParams(-1,-1));
+    if(entry!=null&&!entry.kind.equals("stream")){
+      ImageView image=new ImageView(this);
+      image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+      artwork.addView(image,new FrameLayout.LayoutParams(-1,-1));
+      ArtworkLoader.load(this,entry.uri,entry.isVideo(),image);
+    }
+    row.addView(artwork,Ui.lp(this,54,54,0,0,12,0));
     LinearLayout content=Ui.vertical(this);
     TextView heading=Ui.text(this,title,14,Ui.WHITE,true);
     heading.setMaxLines(1);heading.setEllipsize(TextUtils.TruncateAt.END);
