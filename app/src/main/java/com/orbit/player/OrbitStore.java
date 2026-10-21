@@ -18,7 +18,23 @@ public final class OrbitStore {
   private final SharedPreferences prefs;
   public OrbitStore(Context c){prefs=c.getSharedPreferences("orbit_store_v1",Context.MODE_PRIVATE);}
   public String tree(){return prefs.getString("folder_uri","");}
-  public void setTree(String value){prefs.edit().putString("folder_uri",value).apply();}
+  public void setTree(String value){addTree(value);}
+  public java.util.ArrayList<String> trees(){
+    java.util.ArrayList<String> all=new java.util.ArrayList<>();
+    JSONArray arr=parseArray(prefs.getString("folder_uris","[]"));
+    for(int i=0;i<arr.length();i++){String u=arr.optString(i);if(!u.isEmpty()&&!all.contains(u))all.add(u);}
+    String old=tree();if(!old.isEmpty()&&!all.contains(old))all.add(old);
+    return all;
+  }
+  public void addTree(String uri){
+    java.util.ArrayList<String> values=trees();
+    if(!values.contains(uri))values.add(uri);
+    prefs.edit().putString("folder_uris",new JSONArray(values).toString()).apply();
+  }
+  public void removeTree(String uri){
+    java.util.ArrayList<String> values=trees();values.remove(uri);
+    prefs.edit().putString("folder_uri","").putString("folder_uris",new JSONArray(values).toString()).apply();
+  }
   public ArrayList<MediaEntry> streams(){return readEntries(prefs.getString("streams","[]"));}
   public void saveStream(MediaEntry e){
     ArrayList<MediaEntry> s=streams();
