@@ -11,6 +11,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,6 +30,7 @@ public final class MusicActivity extends Activity {
   private final Handler handler=new Handler(Looper.getMainLooper());
   private TextView title,artist,play,shuffle,repeat,favorite,elapsed,remaining,cover,queueLabel;
   private SeekBar seek;
+  private ImageView albumArt;
   private boolean dragging=false;
   private final Runnable clock=new Runnable(){
     @Override public void run(){updatePosition();handler.postDelayed(this,550);}
@@ -65,8 +68,13 @@ public final class MusicActivity extends Activity {
 
     LinearLayout visual=Ui.vertical(this);visual.setGravity(Gravity.CENTER);
     visual.setBackground(Ui.hero(this));
+    FrameLayout artFrame=new FrameLayout(this);
     TextView icon=Ui.text(this,"◉",120,Ui.ACCENT,true);icon.setGravity(Gravity.CENTER);
-    visual.addView(icon,Ui.lp(this,-1,162,0,0,0,0));
+    artFrame.addView(icon,new FrameLayout.LayoutParams(-1,-1));
+    albumArt=new ImageView(this);albumArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    albumArt.setPadding(Ui.dp(this,15),0,Ui.dp(this,15),0);
+    artFrame.addView(albumArt,new FrameLayout.LayoutParams(-1,-1));
+    visual.addView(artFrame,Ui.lp(this,-1,162,0,0,0,0));
     TextView note=Ui.label(this,"ORBIT  /  AUDIO");
     note.setTextColor(Ui.ACCENT);note.setGravity(Gravity.CENTER);
     visual.addView(note,Ui.lp(this,-1,30,0,0,0,12));
@@ -148,6 +156,8 @@ public final class MusicActivity extends Activity {
     if(player==null)return;
     MediaItem item=player.getCurrentMediaItem();
     title.setText(item!=null&&item.mediaMetadata.title!=null?item.mediaMetadata.title:"Nothing playing");
+    if(item!=null&&item.localConfiguration!=null)
+      ArtworkLoader.load(this,item.localConfiguration.uri.toString(),false,albumArt);
     artist.setText(item!=null&&item.mediaMetadata.artist!=null?item.mediaMetadata.artist:"Orbit Player");
     play.setText(player.isPlaying()?"Ⅱ":"▶");
     shuffle.setText(player.getShuffleModeEnabled()?"Shuffle ✓":"Shuffle");
