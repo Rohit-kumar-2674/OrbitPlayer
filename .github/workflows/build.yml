@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - 'OrbitPlayer-open-source.zip'
       - 'app/**'
       - 'build.gradle'
       - 'settings.gradle'
@@ -14,29 +13,25 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare Android project
-        shell: bash
-        run: |
-          if [ -f OrbitPlayer-open-source.zip ]; then
-            mkdir -p unpacked
-            unzip -q OrbitPlayer-open-source.zip -d unpacked
-            cp -a unpacked/OrbitPlayer/. .
-          fi
-          test -f app/build.gradle || { echo "Upload OrbitPlayer-open-source.zip to the repository first"; exit 1; }
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Install platform and build tools
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
       - name: Assemble debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
       - uses: actions/upload-artifact@v4
         if: success()
         with:
