@@ -3,7 +3,7 @@ android {
   namespace 'com.orbit.player'
   compileSdk 35
   defaultConfig {
-    applicationId 'com.orbit.player'
+    applicationId 'com.orbit.player.preview'
     minSdk 23
     targetSdk 33
     versionCode 2
