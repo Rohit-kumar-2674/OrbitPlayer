@@ -353,6 +353,10 @@ public final class MainActivity extends Activity {
   private void renderMusicResults(LinearLayout target){
     if(!activeGroup.isEmpty()){
       backRow(target,activeGroup,()->{activeGroup="";renderResultsOnly();});
+      if(musicMode.equals("Playlists")){
+        renderItemList(target,store.playlists().getOrDefault(activeGroup,new ArrayList<>()));
+        return;
+      }
       List<MediaEntry> found=new ArrayList<>();
       for(MediaEntry e:music){
         String group=musicMode.equals("Albums")?e.album:e.artist;
